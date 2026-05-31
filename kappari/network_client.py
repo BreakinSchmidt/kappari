@@ -64,7 +64,7 @@ class NetworkClient:
                 for key, value in data.items():
                     if isinstance(value, tuple) and len(value) == 2:
                         # Multipart form data format (filename, content)
-                        filename, content = value
+                        _filename, content = value
                         if key in ["password", "signature"]:
                             log.debug(
                                 "  %s: [HIDDEN - %d chars]",
@@ -121,7 +121,7 @@ class NetworkClient:
 
         for field_name, field_value in files.items():
             if isinstance(field_value, tuple) and len(field_value) == 2:
-                filename, content = field_value
+                _filename, content = field_value
                 value = str(content)
             else:
                 value = str(field_value)

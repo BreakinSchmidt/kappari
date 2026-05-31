@@ -13,37 +13,36 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
       with:
-        python-version: '3.11'
-        
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install 3.11
+
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e ".[dev]"
-        
+      run: uv sync --frozen
+
     - name: Run tests with markdown report
       run: |
-        pytest -v -m "not requires_database and not requires_credentials and not requires_network" \
+        uv run pytest -v -m "not requires_database and not requires_credentials and not requires_network" \
           --md-report --md-report-flavor gfm --md-report-output test_results.md
-      # Skip tests that require external dependencies (database files, credentials, network access)
-      # Generate markdown report for GitHub job summary display
-      
+
     - name: Add test results to job summary
       if: always()
       run: |
         if [ -f "test_results.md" ]; then
-          echo "## 📊 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           cat test_results.md >> $GITHUB_STEP_SUMMARY
         else
-          echo "## ❌ Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
           echo "No test results file generated" >> $GITHUB_STEP_SUMMARY
         fi
-      
+
     - name: Run ruff check
-      run: ruff check .
-      
+      run: uv run ruff check .
+
     - name: Run ruff format check
-      run: ruff format --check .
+      run: uv run ruff format --check .
