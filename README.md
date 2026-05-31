@@ -24,7 +24,9 @@ This project provides **documentation and working code**. You can use it to unde
 
 2. **Install for development:**
    ```bash
-   pip install -e ".[dev]"
+   uv sync
+   # or, with pip (requires pip 25.1+ for --group):
+   # pip install -e . --group dev
    ```
 
 3. **Run tests:**

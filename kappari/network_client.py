@@ -64,7 +64,7 @@ class NetworkClient:
                 for key, value in data.items():
                     if isinstance(value, tuple) and len(value) == 2:
                         # Multipart form data format (filename, content)
-                        filename, content = value
+                        _filename, content = value
                         if key in ["password", "signature"]:
                             log.debug(
                                 "  %s: [HIDDEN - %d chars]",
@@ -121,7 +121,7 @@ class NetworkClient:
 
         for field_name, field_value in files.items():
             if isinstance(field_value, tuple) and len(field_value) == 2:
-                filename, content = field_value
+                _filename, content = field_value
                 value = str(content)
             else:
                 value = str(field_value)
@@ -283,31 +283,8 @@ class NetworkClient:
             log.error("GET request failed: %s", e)
             return None
 
-    def authenticate(
-        self, email: str, password: str, license_data: str, signature: str
-    ) -> Optional[str]:
-        """
-        Authenticate with Paprika server and get JWT token.
-
-        Args:
-            email: User email
-            password: User password
-            license_data: JSON license data string
-            signature: Base64-encoded RSA signature
-
-        Returns:
-            JWT token string or None if failed
-        """
-        # Prepare multipart form data
-        files = {
-            "email": (None, email),
-            "password": (None, password),
-            "data": (None, license_data),
-            "signature": (None, signature),
-        }
-
-        response = self.post("account/login/", files=files)
-
+    def _parse_login_response(self, response) -> Optional[str]:
+        """Extract a JWT token from a login response, or None on failure."""
         if response is None:
             # Dry run or request failed
             return None
@@ -317,6 +294,9 @@ class NetworkClient:
         if response.status_code == 200:
             try:
                 result = response.json()
+                if "error" in result:
+                    log.error("Authentication error: %s", result["error"])
+                    return None
                 if "result" in result and "token" in result["result"]:
                     jwt_token = result["result"]["token"]
                     log.info("Authentication successful")
@@ -326,16 +306,96 @@ class NetworkClient:
             except json.JSONDecodeError:
                 log.error("Non-JSON response: %s", response.text)
                 return None
-        else:
-            log.error(
-                "Authentication failed with status %d", response.status_code
+
+        log.error("Authentication failed with status %d", response.status_code)
+        try:
+            error_data = response.json()
+            log.error("Error details: %s", error_data)
+        except (ValueError, json.JSONDecodeError):
+            log.error("Error response: %s", response.text)
+        return None
+
+    def authenticate(
+        self,
+        email: str,
+        password: str,
+        license_data: Optional[str] = None,
+        signature: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Authenticate with Paprika server and get JWT token.
+
+        When ``license_data`` and ``signature`` are both provided, the
+        license-based login is used. Otherwise a password-only login is
+        performed, which works for users (e.g. on iOS) whose local database
+        has no purchases table.
+
+        Args:
+            email: User email
+            password: User password
+            license_data: JSON license data string (optional)
+            signature: Base64-encoded RSA signature (optional)
+
+        Returns:
+            JWT token string or None if failed
+        """
+        if license_data is None or signature is None:
+            return self._authenticate_password_only(email, password)
+
+        # Prepare multipart form data
+        files = {
+            "email": (None, email),
+            "password": (None, password),
+            "data": (None, license_data),
+            "signature": (None, signature),
+        }
+
+        response = self.post("account/login/", files=files)
+        return self._parse_login_response(response)
+
+    def _authenticate_password_only(
+        self, email: str, password: str
+    ) -> Optional[str]:
+        """
+        Log in with email and password only (no local license data).
+
+        The v1 login endpoint accepts credentials without a purchase receipt
+        on every platform, and the resulting token works against the v2 sync
+        endpoints. The v2 login endpoint rejects password-only logins unless
+        the request looks like it came from a mobile client.
+        """
+        if not kappari_requests_available:
+            raise RuntimeError("requests library not available")
+
+        url = "https://www.paprikaapp.com/api/v1/account/login/"
+        headers = {"User-Agent": self.config.user_agent}
+
+        if self.config.debug_api_requests:
+            self._log_request(
+                "POST", url, headers, {"email": email, "password": "[HIDDEN]"}
             )
-            try:
-                error_data = response.json()
-                log.error("Error details: %s", error_data)
-            except (ValueError, json.JSONDecodeError):
-                log.error("Error response: %s", response.text)
+
+        if self.config.dry_run:
+            log.info("DRY RUN: Would POST password-only login to %s", url)
             return None
+
+        try:
+            response = requests.post(
+                url,
+                data={"email": email, "password": password},
+                headers=headers,
+                timeout=self.config.api_timeout,
+                proxies=self.config.proxies if self.config.proxies else None,
+                verify=self.config.verify_ssl,
+            )
+        except requests.exceptions.RequestException as e:
+            log.error("Password-only login failed: %s", e)
+            return None
+
+        if self.config.debug_api_requests:
+            self._log_response(response)
+
+        return self._parse_login_response(response)
 
     def make_authenticated_request(
         self, endpoint: str, jwt_token: str, method: str = "GET", **kwargs

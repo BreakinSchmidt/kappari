@@ -84,8 +84,36 @@ def test_auth_class_methods():
     assert hasattr(auth, "authenticate")
     assert callable(auth.authenticate)
 
+    assert hasattr(auth, "authenticate_password_only")
+    assert callable(auth.authenticate_password_only)
+
     assert hasattr(auth, "make_authenticated_request")
     assert callable(auth.make_authenticated_request)
+
+
+@pytest.mark.requires_credentials
+@pytest.mark.requires_network
+def test_password_only_authentication_flow(
+    _skip_if_no_credentials, _skip_if_dry_run
+):
+    """Authenticate with email/password only, without local license data."""
+    auth = Auth()
+
+    jwt_token = auth.authenticate_password_only()
+
+    assert jwt_token is not None, "Password-only auth should succeed"
+    assert isinstance(jwt_token, str)
+    assert auth.config.jwt_token == jwt_token
+
+    response = auth.make_authenticated_request("sync/recipes/", jwt_token)
+    assert response is not None
+    assert response.status_code == 200, (
+        f"API request should succeed, got {response.status_code}"
+    )
+
+    response_data = response.json()
+    assert isinstance(response_data, dict)
+    assert "result" in response_data
 
 
 @pytest.mark.requires_database
