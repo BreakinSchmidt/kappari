@@ -50,7 +50,9 @@ For the signature field specifically, after decryption the implementation checks
 
 ## Server Authentication Cryptography
 
-The server authentication process requires both the decrypted license data and the decrypted RSA signature. The license data must be a valid JSON structure containing the user's license information, and the RSA signature must be a valid cryptographic signature of this license data using Paprika's private key (which was used by Paprika's servers during original license creation).
+The license-based authentication process uses both the decrypted license data and the decrypted RSA signature. The license data must be a valid JSON structure containing the user's license information, and the RSA signature must be a valid cryptographic signature of this license data using Paprika's private key (which was used by Paprika's servers during original license creation).
+
+**Note:** The RSA signature is not mandatory for obtaining a token. The `v1` login endpoint accepts email and password alone, and that token works against the `v2` sync endpoints. See [Password-Only Authentication](authentication.md#password-only-authentication). The license-based flow described here is what the desktop client uses, but it is not the only way in.
 
 When authenticating with the server, a multipart form POST request is sent to `https://www.paprikaapp.com/api/v2/account/login/`. This request contains four fields: `email` (user's account email), `password` (user's account password), `data` (the decrypted license JSON as a string), and `signature` (the decrypted RSA signature, Base64-encoded if necessary). The multipart encoding follows a specific format where Content-Type headers come before Content-Disposition headers, and field names are unquoted.
 

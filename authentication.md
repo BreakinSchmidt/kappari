@@ -4,6 +4,8 @@
 
 Paprika uses a dual-layer authentication system: local RSA signature validation of license data followed by server authentication that returns a JWT token for API access. Licenses are bound to specific devices via machine-specific identifiers.
 
+**Note:** The RSA-signed license is not actually required to obtain a token. The `v1` login endpoint (`POST /api/v1/account/login/`) accepts email and password alone and returns a token that works against the `v2` sync endpoints. See [Password-Only Authentication](#password-only-authentication) below. This matters on iOS, where the license is stored in the system keychain rather than the local SQLite database, so the `purchases` table is absent.
+
 ## Complete Authentication Flow
 
 ### Step 1: License Data Collection
@@ -129,6 +131,25 @@ This token is used in all subsequent API requests:
 ```http
 Authorization: Bearer JWT-TOKEN-HERE
 ```
+
+## Password-Only Authentication
+
+The license data and RSA signature are not strictly required to obtain a token. The older `v1` login endpoint authenticates with just email and password, and the token it returns is accepted by the `v2` sync endpoints.
+
+```bash
+curl -s -F "email=you@example.com" -F "password=YOUR_PASSWORD" \
+  -H "User-Agent: Paprika Recipe Manager 3/3.3.1 (iPhone; iOS 17.0)" \
+  "https://www.paprikaapp.com/api/v1/account/login/"
+# -> {"result": {"token": "..."}}
+```
+
+Notes on behavior observed:
+
+- `POST /api/v1/account/login/` accepts password-only login regardless of `User-Agent`.
+- `POST /api/v2/account/login/` rejects password-only login with `{"error": {"message": "Invalid purchase receipt."}}` unless the `User-Agent` identifies a mobile client. Sending empty `data`/`signature` fields triggers the same error, so they must be omitted entirely. The simplest portable approach is to log in via `v1`.
+- The token returned works for `GET /api/v2/sync/recipes/` and other authenticated endpoints.
+
+This is the recommended path on iOS, where the license is stored in the system keychain rather than the SQLite database, so the `purchases` table needed for license decryption does not exist.
 
 ## Implementation Details
 

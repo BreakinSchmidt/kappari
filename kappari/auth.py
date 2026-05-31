@@ -28,6 +28,13 @@ class Auth:
         """Decrypt license data from SQLite database"""
         log.debug("Starting license data decryption")
 
+        if not self.config.db_file:
+            log.error("No database configured for license decryption")
+            raise Exception(
+                "No database configured. Set KAPPARI_DB_FILE, or use "
+                "authenticate_password_only() which needs no database."
+            )
+
         if not Path(self.config.db_file).exists():
             log.error("Database not found: %s", self.config.db_file)
             raise Exception(f"Database not found: {self.config.db_file}")
@@ -121,12 +128,32 @@ class Auth:
         except Exception as e:
             return f"Decryption failed: {e}"
 
+    def authenticate_password_only(self, email=None, password=None):
+        """Authenticate with email and password only, no license required"""
+        email = email or self.config.email
+        password = password or self.config.password
+
+        if not email or not password:
+            raise Exception(
+                "Email and password required. "
+                "Set KAPPARI_EMAIL and KAPPARI_PASSWORD or pass them in."
+            )
+
+        log.info("Attempting password-only authentication: %s", email)
+
+        jwt_token = self.client.authenticate(email, password)
+
+        if jwt_token:
+            self.config.update_jwt_token(jwt_token)
+
+        return jwt_token
+
     def authenticate(self, email, password):
         """Authenticate with server and get JWT token"""
         if not self.license_data or not self.signature:
             raise Exception(
-                "License data not decrypted. "
-                "Call decrypt_license_data() first."
+                "License data not decrypted. Call decrypt_license_data() "
+                "first, or use authenticate_password_only()."
             )
 
         # The license data needs to be sent as JSON
