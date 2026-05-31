@@ -118,15 +118,21 @@ class Config:
             "KAPPARI_DB_BACKUP_DIR", "Database/Backups", None
         )
 
-        # Validate required fields
+        # A database is not required for password-only authentication (e.g.
+        # iOS, where the local database has no purchases table). Operations
+        # that need it (license decryption) validate db_file themselves.
         if not self.db_file:
-            raise ValueError(
-                "Database file could not be determined. "
-                "Set KAPPARI_ROOT_DIR or KAPPARI_DB_FILE in your .env file"
+            log.info(
+                "No database configured. License decryption is unavailable; "
+                "password-only authentication still works."
             )
 
         # Try to load email from database if not in env
-        if self._try_load_email_from_db and Path(self.db_file).exists():
+        if (
+            self._try_load_email_from_db
+            and self.db_file
+            and Path(self.db_file).exists()
+        ):
             self._load_email_from_database()
 
     def _setup_api_config(self):
