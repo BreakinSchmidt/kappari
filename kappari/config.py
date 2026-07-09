@@ -32,7 +32,7 @@ class Config:
         self._setup_logging()
         self._setup_network()
         self._setup_cache_and_storage()
-        self._setup_keep_config()
+        self._setup_todoist_config()
         self._setup_development()
 
     def _setup_credentials(self):
@@ -260,12 +260,10 @@ class Config:
         if self.store_photos_locally:
             self.photos_dir.mkdir(parents=True, exist_ok=True)
 
-    def _setup_keep_config(self):
-        """Setup Google Keep configuration."""
-        self.keep_email = os.getenv("KAPPARI_KEEP_EMAIL")
-        self.keep_app_password = os.getenv("KAPPARI_KEEP_APP_PASSWORD")
-        titles = os.getenv("KAPPARI_KEEP_LIST_TITLES", "Shopping List")
-        self.keep_list_titles = [t.strip() for t in titles.split(",") if t.strip()]
+    def _setup_todoist_config(self):
+        """Setup Todoist configuration."""
+        self.todoist_token = os.getenv("KAPPARI_TODOIST_TOKEN")
+        self.todoist_project_name = os.getenv("KAPPARI_TODOIST_PROJECT_NAME", "Shopping List")
         self.sync_daemon_interval = int(os.getenv("KAPPARI_SYNC_DAEMON_INTERVAL_MINUTES", "15"))
 
     def _setup_development(self):

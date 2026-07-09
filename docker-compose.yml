@@ -1,19 +1,20 @@
 services:
   kappari-sync:
     build: .
-    container_name: kappari-keep-sync
+    container_name: kappari-todoist-sync
     restart: unless-stopped
     volumes:
       # Mount the Paprika database directory or file
       # Adjust the host path on the left side of the colon to point to your actual database location
       - type: bind
-        source: ${LOCALAPPDATA:-C:\Users\mschm\AppData\Local}\Paprika Recipe Manager 3\Database\Paprika.sqlite
+        source: ${KAPPARI_DB_MOUNT_PATH:-/app/Database/Paprika.sqlite}
         target: /app/Database/Paprika.sqlite
         read_only: false
     environment:
       # You can also use a .env file and remove these environment variables here
       - KAPPARI_DB_FILE=/app/Database/Paprika.sqlite
-      - KAPPARI_KEEP_EMAIL=${KAPPARI_KEEP_EMAIL}
-      - KAPPARI_KEEP_APP_PASSWORD=${KAPPARI_KEEP_APP_PASSWORD}
-      - KAPPARI_KEEP_LIST_TITLES=${KAPPARI_KEEP_LIST_TITLES:-Shopping List}
+      - KAPPARI_EMAIL=${KAPPARI_EMAIL}
+      - KAPPARI_PASSWORD=${KAPPARI_PASSWORD}
+      - KAPPARI_TODOIST_TOKEN=${KAPPARI_TODOIST_TOKEN}
+      - KAPPARI_TODOIST_PROJECT_NAME=${KAPPARI_TODOIST_PROJECT_NAME:-Shopping List}
       - KAPPARI_SYNC_DAEMON_INTERVAL_MINUTES=${KAPPARI_SYNC_DAEMON_INTERVAL_MINUTES:-15}

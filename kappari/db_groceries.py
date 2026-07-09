@@ -15,7 +15,7 @@ class GroceriesDB:
         self.db_path = db_path
 
     def _get_purchased_column(self, cursor) -> str:
-        cursor.execute("PRAGMA table_info(groceries)")
+        cursor.execute("PRAGMA table_info(grocery_items)")
         columns = [row[1] for row in cursor.fetchall()]
         for col in ['purchased', 'checked', 'is_purchased']:
             if col in columns:
@@ -41,7 +41,7 @@ class GroceriesDB:
                     g.name, 
                     g.{purchased_col} as purchased, 
                     a.name as aisle_name
-                FROM groceries g
+                FROM grocery_items g
                 LEFT JOIN grocery_aisles a ON g.aisle_uid = a.uid
             """
             cursor.execute(query)
@@ -74,7 +74,7 @@ class GroceriesDB:
             new_sync_hash = generate_sync_hash()
 
             query = f"""
-                UPDATE groceries
+                UPDATE grocery_items
                 SET 
                     {purchased_col} = 1,
                     status = 'modified',

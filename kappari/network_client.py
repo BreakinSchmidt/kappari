@@ -120,24 +120,35 @@ class NetworkClient:
         body_parts = []
 
         for field_name, field_value in files.items():
+            filename = None
             if isinstance(field_value, tuple) and len(field_value) == 2:
-                _filename, content = field_value
-                value = str(content)
+                filename, content = field_value
+                value = content
             else:
-                value = str(field_value)
+                value = field_value
 
-            # Match captured format: Content-Type before Content-Disposition
-            part = f"--{boundary}\r\n"
-            part += "Content-Type: text/plain; charset=utf-8\r\n"
-            part += f"Content-Disposition: form-data; name={field_name}\r\n"
-            part += "\r\n"
-            part += f"{value}\r\n"
+            part = f"--{boundary}\r\n".encode('utf-8')
+            part += "Content-Type: text/plain; charset=utf-8\r\n".encode('utf-8')
+            
+            if filename:
+                part += f"Content-Disposition: form-data; name={field_name}; filename={filename}; filename*=utf-8''{filename}\r\n".encode('utf-8')
+            else:
+                part += f"Content-Disposition: form-data; name={field_name}\r\n".encode('utf-8')
+                
+            part += "\r\n".encode('utf-8')
+            
+            if isinstance(value, str):
+                part += value.encode('utf-8')
+            else:
+                part += value
+                
+            part += "\r\n".encode('utf-8')
             body_parts.append(part)
 
         # Add final boundary
-        body_parts.append(f"--{boundary}--\r\n")
-        body = "".join(body_parts).encode("utf-8")
-
+        body_parts.append(f"--{boundary}--\r\n".encode('utf-8'))
+        
+        body = b"".join(body_parts)
         return body, boundary
 
     def _send_request(self, prepared) -> Optional[requests.Response]:
@@ -421,6 +432,33 @@ class NetworkClient:
         if method.upper() == "POST":
             return self.post(endpoint, **kwargs)
         raise ValueError(f"Unsupported HTTP method: {method}")
+
+    def get_groceries(self, jwt_token: str) -> list[Dict[str, Any]]:
+        """Fetch all groceries from the Paprika API."""
+        response = self.make_authenticated_request('sync/groceries/', jwt_token)
+        if response and response.status_code == 200:
+            return response.json().get('result', [])
+        return []
+
+    def mark_grocery_purchased(self, jwt_token: str, item: Dict[str, Any]) -> bool:
+        """Mark a grocery item as purchased via the Paprika API."""
+        import gzip
+        import json
+        
+        updated_item = item.copy()
+        updated_item['purchased'] = True
+        
+        payload = gzip.compress(json.dumps([updated_item]).encode('utf-8'))
+        files = {'data': ('file', payload)}
+        
+        response = self.make_authenticated_request(
+            'sync/groceries/', 
+            jwt_token, 
+            method='POST', 
+            files=files
+        )
+        
+        return response is not None and response.status_code == 200
 
 
 # Lazy singleton pattern - only create when first requested

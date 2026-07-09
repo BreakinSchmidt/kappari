@@ -16,5 +16,5 @@ RUN uv pip install --system -e .
 
 # Set the entrypoint to the sync daemon
 # Environment variables should be passed to the container
-# e.g. docker run -e KAPPARI_KEEP_EMAIL=... -e KAPPARI_KEEP_APP_PASSWORD=... kappari-sync
+# e.g. docker run -e KAPPARI_TODOIST_TOKEN=... -v /path/to/db:/app/Database kappari-sync
 ENTRYPOINT ["python", "-m", "kappari.sync_daemon"]
