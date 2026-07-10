@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +22,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.Checkbox
@@ -55,6 +60,8 @@ fun GroceryListScreen(token: String, authManager: AuthManager) {
     var isLoading by remember { mutableStateOf(true) }
     var isOffline by remember { mutableStateOf(false) }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     LaunchedEffect(token) {
         try {
             repository.refreshGroceries(token)
@@ -64,6 +71,30 @@ fun GroceryListScreen(token: String, authManager: AuthManager) {
             isOffline = true
         } finally {
             isLoading = false
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // Refresh when app comes to foreground
+                isLoading = true
+                kotlinx.coroutines.GlobalScope.launch {
+                    try {
+                        repository.refreshGroceries(token)
+                        isOffline = false
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        isOffline = true
+                    } finally {
+                        isLoading = false
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -173,6 +204,7 @@ fun GroceryItemsScreen(
     repository: GroceryRepository
 ) {
     var checkedItemUids by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var lastPurchasedItem by remember { mutableStateOf<GroceryItem?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     if (isLoading && groceries.isEmpty()) {
@@ -221,6 +253,27 @@ fun GroceryItemsScreen(
                 }
             }
         }
+        if (lastPurchasedItem != null) {
+            item {
+                Chip(
+                    onClick = {
+                        coroutineScope.launch {
+                            repository.unmarkPurchased(lastPurchasedItem!!.uid)
+                            lastPurchasedItem = null
+                        }
+                    },
+                    colors = ChipDefaults.primaryChipColors(),
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Undo"
+                        )
+                    },
+                    label = { Text("Undo ${lastPurchasedItem!!.name}") },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
         groupedGroceries.forEach { (aisle, aisleItems) ->
             item {
                 ListHeader {
@@ -246,6 +299,7 @@ fun GroceryItemsScreen(
                                     delay(400)
                                     try {
                                         repository.markPurchased(item.uid)
+                                        lastPurchasedItem = item
                                     } catch (e: Exception) {
                                         e.printStackTrace()
                                     }

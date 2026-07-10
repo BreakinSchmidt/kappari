@@ -8,14 +8,14 @@ plugins {
 
 android {
     namespace = "com.breakinschmidt.kappariwear"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.breakinschmidt.kappariwear"
         minSdk = 30
-        targetSdk = 33
-        versionCode = 1
-        versionName = "1.0"
+        targetSdk = 35
+        versionCode = 5
+        versionName = "1.0.4"
     }
 
     buildTypes {
