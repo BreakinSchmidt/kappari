@@ -14,7 +14,9 @@ import com.breakinschmidt.kappariwear.network.GroceryItem
 import com.breakinschmidt.kappariwear.network.GroceryList
 import com.breakinschmidt.kappariwear.network.PaprikaApiClient
 import com.breakinschmidt.kappariwear.worker.SyncWorker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 class GroceryRepository(private val context: Context) {
@@ -23,13 +25,13 @@ class GroceryRepository(private val context: Context) {
     fun getGroceries(): Flow<List<GroceryItem>> {
         return groceryDao.getGroceries().map { entities ->
             entities.map { it.toNetworkModel() }
-        }
+        }.flowOn(Dispatchers.IO)
     }
 
     fun getGroceryLists(): Flow<List<GroceryList>> {
         return groceryDao.getGroceryLists().map { entities ->
             entities.map { it.toNetworkModel() }
-        }
+        }.flowOn(Dispatchers.IO)
     }
 
     suspend fun refreshGroceries(token: String) {

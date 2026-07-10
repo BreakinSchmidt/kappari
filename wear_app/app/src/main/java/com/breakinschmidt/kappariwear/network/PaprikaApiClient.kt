@@ -19,7 +19,7 @@ object PaprikaApiClient {
 
     val api: PaprikaApi by lazy {
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = HttpLoggingInterceptor.Level.BASIC
         }
         
         val authenticator = Authenticator { _, response ->
@@ -40,7 +40,7 @@ object PaprikaApiClient {
             }
             
             val newToken = loginCall?.result?.token
-            if (newToken != null) {
+            if (newToken != null && response.request.header("Authorization") != "Bearer $newToken") {
                 runBlocking {
                     manager.saveToken(newToken)
                 }

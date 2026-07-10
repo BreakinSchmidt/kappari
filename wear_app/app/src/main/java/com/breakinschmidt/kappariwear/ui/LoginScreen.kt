@@ -28,6 +28,14 @@ import androidx.wear.input.RemoteInputIntentHelper
 import com.breakinschmidt.kappariwear.data.AuthManager
 import com.breakinschmidt.kappariwear.network.PaprikaApiClient
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 
 @Composable
 fun LoginScreen(authManager: AuthManager) {
@@ -42,14 +50,6 @@ fun LoginScreen(authManager: AuthManager) {
         val input = results?.getCharSequence("email")
         if (input != null) {
             email = input.toString()
-        }
-    }
-
-    val passwordLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val results: Bundle? = RemoteInput.getResultsFromIntent(result.data)
-        val input = results?.getCharSequence("password")
-        if (input != null) {
-            password = input.toString()
         }
     }
 
@@ -80,16 +80,38 @@ fun LoginScreen(authManager: AuthManager) {
         }
 
         item {
-            Chip(
-                onClick = {
-                    val intent = RemoteInputIntentHelper.createActionRemoteInputIntent()
-                    val remoteInputs = listOf(RemoteInput.Builder("password").setLabel("Password").build())
-                    RemoteInputIntentHelper.putRemoteInputsExtra(intent, remoteInputs)
-                    passwordLauncher.launch(intent)
-                },
-                colors = ChipDefaults.secondaryChipColors(),
-                label = { Text(if (password.isEmpty()) "Enter Password" else "********") },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+            BasicTextField(
+                value = password,
+                onValueChange = { password = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .height(52.dp),
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                singleLine = true,
+                textStyle = androidx.wear.compose.material.LocalTextStyle.current.copy(
+                    color = androidx.wear.compose.material.MaterialTheme.colors.onSurface,
+                    textAlign = TextAlign.Center
+                ),
+                decorationBox = { innerTextField ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                androidx.wear.compose.material.MaterialTheme.colors.surface,
+                                RoundedCornerShape(percent = 50)
+                            )
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (password.isEmpty()) {
+                            Text("Enter Password", color = androidx.wear.compose.material.MaterialTheme.colors.onSurfaceVariant)
+                        } else {
+                            innerTextField()
+                        }
+                    }
+                }
             )
         }
 

@@ -22,6 +22,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.Checkbox
@@ -56,6 +60,8 @@ fun GroceryListScreen(token: String, authManager: AuthManager) {
     var isLoading by remember { mutableStateOf(true) }
     var isOffline by remember { mutableStateOf(false) }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     LaunchedEffect(token) {
         try {
             repository.refreshGroceries(token)
@@ -65,6 +71,30 @@ fun GroceryListScreen(token: String, authManager: AuthManager) {
             isOffline = true
         } finally {
             isLoading = false
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // Refresh when app comes to foreground
+                isLoading = true
+                kotlinx.coroutines.GlobalScope.launch {
+                    try {
+                        repository.refreshGroceries(token)
+                        isOffline = false
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        isOffline = true
+                    } finally {
+                        isLoading = false
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 

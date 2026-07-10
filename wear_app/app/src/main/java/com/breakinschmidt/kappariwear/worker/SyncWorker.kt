@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.breakinschmidt.kappariwear.data.AuthManager
+import com.breakinschmidt.kappariwear.data.GroceryRepository
 import com.breakinschmidt.kappariwear.data.local.AppDatabase
 import com.breakinschmidt.kappariwear.data.local.SyncStatus
 import com.breakinschmidt.kappariwear.data.local.toNetworkModel
@@ -28,33 +29,40 @@ class SyncWorker(
         val token = authManager.jwtToken.firstOrNull() ?: return Result.failure()
         
         val pendingUpdates = groceryDao.getPendingUpdates()
-        if (pendingUpdates.isEmpty()) {
-            return Result.success()
+        if (pendingUpdates.isNotEmpty()) {
+            val gson = Gson()
+            
+            for (entity in pendingUpdates) {
+                try {
+                    val item = entity.toNetworkModel()
+                    val jsonString = gson.toJson(listOf(item))
+                    
+                    val baos = ByteArrayOutputStream()
+                    GZIPOutputStream(baos).use { it.write(jsonString.toByteArray()) }
+                    val gzipped = baos.toByteArray()
+                    
+                    val requestBody = gzipped.toRequestBody("application/octet-stream".toMediaTypeOrNull())
+                    val part = MultipartBody.Part.createFormData("data", "file", requestBody)
+                    
+                    PaprikaApiClient.api.syncGroceries("Bearer $token", part)
+                    
+                    // Mark as synced if successful
+                    groceryDao.update(entity.copy(syncStatus = SyncStatus.SYNCED))
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    // Retry if network fails or server error
+                    return Result.retry()
+                }
+            }
         }
 
-        val gson = Gson()
-        
-        for (entity in pendingUpdates) {
-            try {
-                val item = entity.toNetworkModel()
-                val jsonString = gson.toJson(listOf(item))
-                
-                val baos = ByteArrayOutputStream()
-                GZIPOutputStream(baos).use { it.write(jsonString.toByteArray()) }
-                val gzipped = baos.toByteArray()
-                
-                val requestBody = gzipped.toRequestBody("application/octet-stream".toMediaTypeOrNull())
-                val part = MultipartBody.Part.createFormData("data", "file", requestBody)
-                
-                PaprikaApiClient.api.syncGroceries("Bearer $token", part)
-                
-                // Mark as synced if successful
-                groceryDao.update(entity.copy(syncStatus = SyncStatus.SYNCED))
-            } catch (e: Exception) {
-                e.printStackTrace()
-                // Retry if network fails or server error
-                return Result.retry()
-            }
+        // Pull latest updates
+        try {
+            val repository = GroceryRepository(applicationContext)
+            repository.refreshGroceries(token)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return Result.retry()
         }
         
         return Result.success()
