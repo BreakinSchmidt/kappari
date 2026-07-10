@@ -19,11 +19,15 @@ import androidx.work.WorkManager
 import com.breakinschmidt.kappariwear.worker.SyncWorker
 import java.util.concurrent.TimeUnit
 
+import android.view.WindowManager
+
 class MainActivity : ComponentActivity() {
     private lateinit var authManager: AuthManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         authManager = AuthManager(this)
         com.breakinschmidt.kappariwear.network.PaprikaApiClient.initialize(authManager)
 

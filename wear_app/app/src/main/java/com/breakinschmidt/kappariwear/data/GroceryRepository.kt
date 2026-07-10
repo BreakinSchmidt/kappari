@@ -1,6 +1,7 @@
 package com.breakinschmidt.kappariwear.data
 
 import android.content.Context
+import androidx.room.withTransaction
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
@@ -20,7 +21,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 class GroceryRepository(private val context: Context) {
-    private val groceryDao = AppDatabase.getDatabase(context).groceryDao()
+    private val database = AppDatabase.getDatabase(context)
+    private val groceryDao = database.groceryDao()
 
     fun getGroceries(): Flow<List<GroceryItem>> {
         return groceryDao.getGroceries().map { entities ->
@@ -39,18 +41,20 @@ class GroceryRepository(private val context: Context) {
         val listResponse = PaprikaApiClient.api.getGroceryLists("Bearer $token")
         val itemResponse = PaprikaApiClient.api.getGroceries("Bearer $token")
         
-        // Update lists
-        groceryDao.clearAllLists()
-        groceryDao.insertAllLists(listResponse.result.map { it.toEntity() })
+        database.withTransaction {
+            // Update lists
+            groceryDao.clearAllLists()
+            groceryDao.insertAllLists(listResponse.result.map { it.toEntity() })
 
-        // Update items
-        val pendingUpdates = groceryDao.getPendingUpdates().associateBy { it.uid }
-        val newEntities = itemResponse.result.map { item ->
-            pendingUpdates[item.uid] ?: item.toEntity()
+            // Update items
+            val pendingUpdates = groceryDao.getPendingUpdates().associateBy { it.uid }
+            val newEntities = itemResponse.result.map { item ->
+                pendingUpdates[item.uid] ?: item.toEntity()
+            }
+            
+            groceryDao.deleteSynced()
+            groceryDao.insertAll(newEntities)
         }
-        
-        groceryDao.deleteSynced()
-        groceryDao.insertAll(newEntities)
     }
 
     suspend fun markPurchased(uid: String) {

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
+import android.content.Context
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,6 +63,18 @@ fun GroceryListScreen(token: String, authManager: AuthManager) {
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val lastListUid = prefs.getString("last_list_uid", null)
+        val lastListTime = prefs.getLong("last_list_time", 0L)
+        val currentTime = System.currentTimeMillis()
+        
+        // If it's been less than 1 hour (3600000 ms), go back to the last list
+        if (lastListUid != null && (currentTime - lastListTime) < 3600000L) {
+            navController.navigate("items/$lastListUid")
+        }
+    }
+
     LaunchedEffect(token) {
         try {
             repository.refreshGroceries(token)
@@ -89,6 +102,23 @@ fun GroceryListScreen(token: String, authManager: AuthManager) {
                     } finally {
                         isLoading = false
                     }
+                }
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                val currentEntry = navController.currentBackStackEntry
+                if (currentEntry?.destination?.route == "items/{listUid}") {
+                    val uid = currentEntry.arguments?.getString("listUid")
+                    if (uid != null) {
+                        prefs.edit()
+                            .putString("last_list_uid", uid)
+                            .putLong("last_list_time", System.currentTimeMillis())
+                            .apply()
+                    }
+                } else {
+                    prefs.edit()
+                        .remove("last_list_uid")
+                        .remove("last_list_time")
+                        .apply()
                 }
             }
         }
@@ -160,7 +190,7 @@ fun ListSelectionScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         if (isOffline) {
-            item {
+            item(key = "offline_warning") {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
                     horizontalArrangement = Arrangement.Center,
@@ -176,7 +206,7 @@ fun ListSelectionScreen(
                 }
             }
         }
-        item {
+        item(key = "header_lists") {
             ListHeader {
                 Text(
                     text = "Shopping Lists",
@@ -237,7 +267,7 @@ fun GroceryItemsScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         if (isOffline) {
-            item {
+            item(key = "offline_warning") {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
                     horizontalArrangement = Arrangement.Center,
@@ -254,7 +284,7 @@ fun GroceryItemsScreen(
             }
         }
         if (lastPurchasedItem != null) {
-            item {
+            item(key = "undo_${lastPurchasedItem!!.uid}") {
                 Chip(
                     onClick = {
                         coroutineScope.launch {
@@ -275,7 +305,7 @@ fun GroceryItemsScreen(
             }
         }
         groupedGroceries.forEach { (aisle, aisleItems) ->
-            item {
+            item(key = "header_$aisle") {
                 ListHeader {
                     Text(
                         text = aisle,
