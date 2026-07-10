@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -173,6 +174,7 @@ fun GroceryItemsScreen(
     repository: GroceryRepository
 ) {
     var checkedItemUids by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var lastPurchasedItem by remember { mutableStateOf<GroceryItem?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     if (isLoading && groceries.isEmpty()) {
@@ -221,6 +223,27 @@ fun GroceryItemsScreen(
                 }
             }
         }
+        if (lastPurchasedItem != null) {
+            item {
+                Chip(
+                    onClick = {
+                        coroutineScope.launch {
+                            repository.unmarkPurchased(lastPurchasedItem!!.uid)
+                            lastPurchasedItem = null
+                        }
+                    },
+                    colors = ChipDefaults.primaryChipColors(),
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Undo"
+                        )
+                    },
+                    label = { Text("Undo ${lastPurchasedItem!!.name}") },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
         groupedGroceries.forEach { (aisle, aisleItems) ->
             item {
                 ListHeader {
@@ -246,6 +269,7 @@ fun GroceryItemsScreen(
                                     delay(400)
                                     try {
                                         repository.markPurchased(item.uid)
+                                        lastPurchasedItem = item
                                     } catch (e: Exception) {
                                         e.printStackTrace()
                                     }

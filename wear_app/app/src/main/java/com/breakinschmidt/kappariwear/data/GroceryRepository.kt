@@ -59,6 +59,15 @@ class GroceryRepository(private val context: Context) {
             enqueueSyncWorker()
         }
     }
+
+    suspend fun unmarkPurchased(uid: String) {
+        val entity = groceryDao.getGroceryById(uid)
+        if (entity != null) {
+            val updated = entity.copy(purchased = false, syncStatus = SyncStatus.PENDING_UPDATE)
+            groceryDao.update(updated)
+            enqueueSyncWorker()
+        }
+    }
     
     fun enqueueSyncWorker() {
         val constraints = Constraints.Builder()
