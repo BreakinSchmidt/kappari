@@ -37,4 +37,13 @@ interface GroceryDao {
 
     @Query("DELETE FROM grocery_lists")
     suspend fun clearAllLists()
+
+    @Query("SELECT * FROM grocery_aisles ORDER BY orderFlag ASC")
+    fun getGroceryAisles(): Flow<List<GroceryAisleEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllAisles(aisles: List<GroceryAisleEntity>)
+
+    @Query("DELETE FROM grocery_aisles")
+    suspend fun clearAllAisles()
 }

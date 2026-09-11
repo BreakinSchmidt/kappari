@@ -40,3 +40,14 @@ data class GroceryList(
     @SerializedName("order_flag") val orderFlag: Int = 0,
     @SerializedName("is_default") val isDefault: Boolean = false
 )
+
+data class GroceryAisleResponse(
+    val result: List<GroceryAisle> = emptyList()
+)
+
+data class GroceryAisle(
+    val uid: String,
+    val name: String,
+    @SerializedName("order_flag") val orderFlag: Int = 0
+)
+

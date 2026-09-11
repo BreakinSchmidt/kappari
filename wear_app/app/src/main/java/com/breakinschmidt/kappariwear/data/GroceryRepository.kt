@@ -11,6 +11,7 @@ import com.breakinschmidt.kappariwear.data.local.AppDatabase
 import com.breakinschmidt.kappariwear.data.local.SyncStatus
 import com.breakinschmidt.kappariwear.data.local.toEntity
 import com.breakinschmidt.kappariwear.data.local.toNetworkModel
+import com.breakinschmidt.kappariwear.network.GroceryAisle
 import com.breakinschmidt.kappariwear.network.GroceryItem
 import com.breakinschmidt.kappariwear.network.GroceryList
 import com.breakinschmidt.kappariwear.network.PaprikaApiClient
@@ -36,15 +37,26 @@ class GroceryRepository(private val context: Context) {
         }.flowOn(Dispatchers.IO)
     }
 
+    fun getGroceryAisles(): Flow<List<GroceryAisle>> {
+        return groceryDao.getGroceryAisles().map { entities ->
+            entities.map { it.toNetworkModel() }
+        }.flowOn(Dispatchers.IO)
+    }
+
     suspend fun refreshGroceries(token: String) {
-        // Fetch both lists and items
+        // Fetch lists, items, and aisles
         val listResponse = PaprikaApiClient.api.getGroceryLists("Bearer $token")
         val itemResponse = PaprikaApiClient.api.getGroceries("Bearer $token")
+        val aisleResponse = PaprikaApiClient.api.getGroceryAisles("Bearer $token")
         
         database.withTransaction {
             // Update lists
             groceryDao.clearAllLists()
             groceryDao.insertAllLists(listResponse.result.map { it.toEntity() })
+
+            // Update aisles
+            groceryDao.clearAllAisles()
+            groceryDao.insertAllAisles(aisleResponse.result.map { it.toEntity() })
 
             // Update items
             val pendingUpdates = groceryDao.getPendingUpdates().associateBy { it.uid }

@@ -44,6 +44,7 @@ import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.breakinschmidt.kappariwear.data.AuthManager
 import com.breakinschmidt.kappariwear.data.GroceryRepository
+import com.breakinschmidt.kappariwear.network.GroceryAisle
 import com.breakinschmidt.kappariwear.network.GroceryItem
 import com.breakinschmidt.kappariwear.network.GroceryList
 import kotlinx.coroutines.delay
@@ -57,6 +58,7 @@ fun GroceryListScreen(token: String, authManager: AuthManager) {
     
     val allLists by repository.getGroceryLists().collectAsState(initial = emptyList())
     val allGroceries by repository.getGroceries().collectAsState(initial = emptyList())
+    val allAisles by repository.getGroceryAisles().collectAsState(initial = emptyList())
     
     var isLoading by remember { mutableStateOf(true) }
     var isOffline by remember { mutableStateOf(false) }
@@ -147,6 +149,7 @@ fun GroceryListScreen(token: String, authManager: AuthManager) {
             val listItems = allGroceries.filter { it.listUid == listUid && !it.purchased }.sortedBy { it.orderFlag }
             GroceryItemsScreen(
                 groceries = listItems,
+                aisles = allAisles,
                 isLoading = isLoading,
                 isOffline = isOffline,
                 repository = repository
@@ -229,6 +232,7 @@ fun ListSelectionScreen(
 @Composable
 fun GroceryItemsScreen(
     groceries: List<GroceryItem>,
+    aisles: List<GroceryAisle> = emptyList(),
     isLoading: Boolean,
     isOffline: Boolean,
     repository: GroceryRepository
@@ -261,7 +265,20 @@ fun GroceryItemsScreen(
         return
     }
 
-    val groupedGroceries = groceries.groupBy { it.aisle ?: "Uncategorized" }
+    val aisleOrderMap = remember(aisles) {
+        aisles.associate { it.name to it.orderFlag }
+    }
+
+    val groupedGroceries = remember(groceries, aisleOrderMap) {
+        groceries
+            .groupBy { it.aisle ?: "Uncategorized" }
+            .toList()
+            .sortedWith(compareBy(
+                { if (it.first == "Uncategorized") 1 else 0 },
+                { aisleOrderMap[it.first] ?: Int.MAX_VALUE },
+                { it.first }
+            ))
+    }
 
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize()

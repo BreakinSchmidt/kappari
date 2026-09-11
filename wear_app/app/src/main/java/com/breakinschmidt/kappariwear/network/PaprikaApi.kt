@@ -27,6 +27,11 @@ interface PaprikaApi {
         @Header("Authorization") token: String
     ): GroceryListResponse
 
+    @GET("api/v2/sync/groceryaisles/")
+    suspend fun getGroceryAisles(
+        @Header("Authorization") token: String
+    ): GroceryAisleResponse
+
     @Multipart
     @POST("api/v2/sync/groceries/")
     suspend fun syncGroceries(
